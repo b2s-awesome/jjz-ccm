@@ -317,3 +317,19 @@ def test_scan_speed_1080p():
     print(f"scan: {ms:.0f} ms")
     assert match_template(frame, tpl, None, 0.8, 1.0).center == pytest.approx((990 / 1920, 70 / 1080), abs=1e-3)
     assert ms < 300
+
+
+def test_coarse_decoy_does_not_hide_true_match():
+    """A decoy identical to the template at half resolution (fine checkerboard averages to flat
+    grey) sits before the real element in scan order. Re-checking only the single best coarse
+    peak would refine the decoy and miss; re-checking the top few peaks finds the real one."""
+    tpl = np.zeros((40, 80, 3), np.uint8)
+    tpl[::2, ::2] = tpl[1::2, 1::2] = 255          # 1px checkerboard
+    tpl[:4], tpl[-4:], tpl[:, :4], tpl[:, -4:] = (0, 0, 200), (0, 0, 200), (0, 0, 200), (0, 0, 200)
+    # decoy = template downsampled and blown back up: identical at half res, flat at full res
+    decoy = cv2.resize(cv2.resize(tpl, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA),
+                       (80, 40), interpolation=cv2.INTER_NEAREST)
+    f = paste(paste(blank(), decoy, 100, 100), tpl, 601, 301)  # odd offset: blurs at half res
+    m = match_template(f, tpl, threshold=0.9)
+    assert m.found and m.confidence > 0.99
+    assert m.center == pytest.approx((641 / W, 321 / H), abs=1e-3)

@@ -60,6 +60,8 @@ class TemplateLibrary:
 
 COARSE = 0.5          # search resolution factor for the first pass
 MIN_COARSE_SIDE = 16  # templates smaller than this (px) after coarsening are matched at full res
+COARSE_PEAKS = 3      # distinct coarse candidates re-scored at full res (guards against look-alikes)
+MIN_PEAK_CONF = 0.5   # extra candidates below this coarse score are not worth re-scoring
 
 
 def _resize(img, f):
@@ -73,13 +75,28 @@ def _best(area, tpl):
     return float(conf), loc
 
 
+def _coarse_peaks(area, tpl, k=COARSE_PEAKS):
+    """Top-k distinct peaks of the coarse match map. Each peak's neighbourhood (one template
+    size) is suppressed so the k candidates are k different places, not one blob."""
+    res = cv2.matchTemplate(area, tpl, cv2.TM_CCOEFF_NORMED)
+    th, tw = tpl.shape[:2]
+    peaks = []
+    for _ in range(k):
+        _, conf, _, (x, y) = cv2.minMaxLoc(res)
+        if peaks and conf < MIN_PEAK_CONF:
+            break
+        peaks.append((x, y))
+        res[max(0, y - th // 2):y + th // 2 + 1, max(0, x - tw // 2):x + tw // 2 + 1] = -1.0
+    return peaks
+
+
 def match_template(frame, template, region=None, threshold=0.8, scale=1.0,
                    color=True, scales=None) -> Match:
     """Best normalized-correlation match of template inside region.
 
     color=False matches in grayscale: ~5x faster, but elements that differ mainly by hue
     (e.g. a HUD vs a reward banner of the same shape) can be confused, so it is opt-in. The search
-    runs at half resolution, then the best hit is re-scored at full resolution, so the
+    runs at half resolution, then the top few distinct hits are re-scored at full resolution, so the
     returned confidence and position are full-resolution values. scales defaults to
     scale, ±10%; Vision passes the single cached scale once a template has matched.
     """
@@ -96,14 +113,14 @@ def match_template(frame, template, region=None, threshold=0.8, scale=1.0,
         if th < 4 or tw < 4 or th > ah or tw > aw:
             continue
         if min(th, tw) * COARSE >= MIN_COARSE_SIDE:
-            # shortcut: only the coarse peak is refined; a false coarse peak beating the true one
-            # gives a miss. Refine top-N peaks if templates ever prove ambiguous.
-            _, (cx, cy) = _best(_resize(area, COARSE), _resize(t, COARSE))
-            x, y, m = int(cx / COARSE), int(cy / COARSE), int(2 / COARSE) + 2
-            x0, y0 = max(0, min(x - m, aw - tw)), max(0, min(y - m, ah - th))
-            x1, y1 = min(aw, max(x0 + tw, x + tw + m)), min(ah, max(y0 + th, y + th + m))
-            conf, (lx, ly) = _best(area[y0:y1, x0:x1], t)
-            loc = (x0 + lx, y0 + ly)
+            conf, loc = -1.0, (0, 0)
+            for cx, cy in _coarse_peaks(_resize(area, COARSE), _resize(t, COARSE)):
+                x, y, m = int(cx / COARSE), int(cy / COARSE), int(2 / COARSE) + 2
+                x0, y0 = max(0, min(x - m, aw - tw)), max(0, min(y - m, ah - th))
+                x1, y1 = min(aw, max(x0 + tw, x + tw + m)), min(ah, max(y0 + th, y + th + m))
+                c, (lx, ly) = _best(area[y0:y1, x0:x1], t)
+                if c > conf:
+                    conf, loc = c, (x0 + lx, y0 + ly)
         else:
             conf, loc = _best(area, t)
         if conf > best.confidence:

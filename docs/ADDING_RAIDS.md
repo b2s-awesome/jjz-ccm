@@ -21,7 +21,7 @@ the reference height to match.
 
 ## Matching speed
 
-Matching runs at half resolution first, then re-scores the best hit at full resolution. After a
+Matching runs at half resolution first, then re-scores the top 3 distinct candidates at full resolution, so a look-alike cannot hide the real element. After a
 template matches once, only the scale that matched is tried until the resolution changes.
 
 For each detector or template step:

@@ -43,6 +43,7 @@ class Vision:
         self.default_threshold = default_threshold
         self.tesseract_cmd = tesseract_cmd
         self.last_frame: Optional[np.ndarray] = None
+        self._scale_cache: dict[tuple[str, int], float] = {}
 
     def frame(self) -> Optional[np.ndarray]:
         self.last_frame = self.source.grab()
@@ -61,7 +62,13 @@ class Vision:
             log.warning("Template %r missing (expected %s)", name, self.templates.path(name))
             return Match(False, 0.0)
         scale = frame.shape[0] / self.reference_height
-        return match_template(frame, tpl, det.get("region"), det.get("threshold", self.default_threshold), scale)
+        key = (name, frame.shape[0])  # a resolution change invalidates the cached scale
+        cached = self._scale_cache.get(key)
+        m = match_template(frame, tpl, det.get("region"), det.get("threshold", self.default_threshold),
+                           scale, det.get("color", True), [cached] if cached else None)
+        if m.found:
+            self._scale_cache[key] = m.scale
+        return m
 
     def bar(self, det: Optional[dict], frame=None) -> Optional[float]:
         frame = self.last_frame if frame is None else frame

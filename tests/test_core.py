@@ -272,3 +272,48 @@ def test_start_rejects_invalid_profile(rig):
     eng, *_ = rig
     with pytest.raises(ValueError):
         eng.start([(normalize({"name": "bad"}), 1)])
+
+
+# ---------------------------------------------------------------- vision performance / options
+def test_color_option_separates_same_luminance():
+    """Red and green badges with equal grayscale value: gray matching confuses them, color
+    (the default) doesn't."""
+    red, green = badge((0, 0, 255), "GO"), badge((0, 130, 0), "GO")
+    f = paste(blank(), green, 400, 200)
+    assert match_template(f, red, threshold=0.8, color=False).found
+    assert not match_template(f, red, threshold=0.8).found
+    assert match_template(f, green, threshold=0.8).found
+
+
+def test_vision_caches_scale(tmp_path):
+    t = badge((40, 120, 200), "HUD")
+    cv2.imwrite(str(tmp_path / "hud.png"), t)
+    frame = paste(blank(), t, 400, 20)
+    vis = Vision(None, TemplateLibrary(tmp_path), H)
+    assert vis.check({"template": "hud"}, frame)
+    assert vis._scale_cache == {("hud", H): 1.0}
+    assert vis.check({"template": "hud"}, frame).confidence > 0.95  # cached single-scale path
+
+
+def test_scan_speed_1080p():
+    """A steady-state scan (5 color detectors at their cached scale, one full-frame, + HP bar) must
+    fit the 0.4 s scan interval. Was ~1.7 s before coarse-to-fine matching and the scale cache."""
+    rng = np.random.default_rng(0)
+    frame = rng.integers(0, 255, (1080, 1920, 3), dtype=np.uint8)
+    tpl = rng.integers(0, 255, (60, 180, 3), dtype=np.uint8)
+    paste(frame, tpl, 900, 40)
+    regions = [[0.25, 0, 0.5, 0.2], [0.2, 0.1, 0.6, 0.5], [0.2, 0.1, 0.6, 0.5], None, [0.25, 0, 0.5, 0.12]]
+
+    def scan():
+        for r in regions:
+            match_template(frame, tpl, r, 0.8, 1.0, scales=[1.0])
+        bar_fill(frame, [0.3, 0.05, 0.4, 0.03], [200, 40, 40])
+
+    scan()
+    t0 = time.perf_counter()
+    for _ in range(5):
+        scan()
+    ms = (time.perf_counter() - t0) / 5 * 1000
+    print(f"scan: {ms:.0f} ms")
+    assert match_template(frame, tpl, None, 0.8, 1.0).center == pytest.approx((990 / 1920, 70 / 1080), abs=1e-3)
+    assert ms < 300

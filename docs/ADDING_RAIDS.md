@@ -19,6 +19,18 @@ Every `region` is `[x, y, width, height]`, given as fractions (0–1) of the Rob
 (Settings) and are also tried at ±10%. Capture templates at the resolution you will play at, and set
 the reference height to match.
 
+## Matching speed
+
+Matching runs at half resolution first, then re-scores the best hit at full resolution. After a
+template matches once, only the scale that matched is tried until the resolution changes.
+
+For each detector or template step:
+- Give it a tight `region`. This is the biggest speed-up, because the cost grows with the area searched.
+- Optionally add `"color": false` to match in grayscale. Grayscale is about 5× faster, but it can
+  confuse elements that differ mainly in colour, such as a HUD and a reward banner of the same shape.
+  Use it only on templates whose shape is unique. Then run **Test all detectors** on *every* screen and
+  check that the template does not reach its threshold where it should not.
+
 ## Schema
 
 | Key | Meaning |

@@ -803,7 +803,7 @@ class MainWindow(QMainWindow):
                 if self.templates.get(tname) is None:
                     self._table_row(self.det_table, [f"step: {tname}", "MISSING TEMPLATE", f"templates/{tname}.png"])
                 else:
-                    m = vis.check({k: s[k] for k in ("template", "region", "threshold") if k in s}, frame, fmt)
+                    m = vis.check({k: s[k] for k in ("template", "region", "threshold", "color") if k in s}, frame, fmt)
                     self._table_row(self.det_table, [f"step: {tname}", "FOUND" if m else "no (may be another screen)",
                                                      f"{m.confidence:.3f}"])
 

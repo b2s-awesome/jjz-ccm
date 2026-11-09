@@ -21,6 +21,7 @@ class Match:
     found: bool
     confidence: float
     center: Optional[tuple[float, float]] = None  # fractions of the full frame
+    scale: float = 1.0                             # template scale that produced this match
 
     def __bool__(self):
         return self.found
@@ -57,22 +58,57 @@ class TemplateLibrary:
         self._cache.clear()
 
 
-def match_template(frame, template, region=None, threshold=0.8, scale=1.0) -> Match:
-    """Best normalized-correlation match of template inside region, tried at a few scales."""
+COARSE = 0.5          # search resolution factor for the first pass
+MIN_COARSE_SIDE = 16  # templates smaller than this (px) after coarsening are matched at full res
+
+
+def _resize(img, f):
+    if abs(f - 1.0) < 1e-3:
+        return img
+    return cv2.resize(img, None, fx=f, fy=f, interpolation=cv2.INTER_AREA if f < 1 else cv2.INTER_LINEAR)
+
+
+def _best(area, tpl):
+    _, conf, _, loc = cv2.minMaxLoc(cv2.matchTemplate(area, tpl, cv2.TM_CCOEFF_NORMED))
+    return float(conf), loc
+
+
+def match_template(frame, template, region=None, threshold=0.8, scale=1.0,
+                   color=True, scales=None) -> Match:
+    """Best normalized-correlation match of template inside region.
+
+    color=False matches in grayscale: ~5x faster, but elements that differ mainly by hue
+    (e.g. a HUD vs a reward banner of the same shape) can be confused, so it is opt-in. The search
+    runs at half resolution, then the best hit is re-scored at full resolution, so the
+    returned confidence and position are full-resolution values. scales defaults to
+    scale, ±10%; Vision passes the single cached scale once a template has matched.
+    """
     area, ox, oy = crop(frame, region)
-    best = Match(False, 0.0)
+    if not color:
+        area = cv2.cvtColor(area, cv2.COLOR_BGR2GRAY)
+        template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+    ah, aw = area.shape[:2]
     fh, fw = frame.shape[:2]
-    for s in (scale, scale * 0.9, scale * 1.1):
-        t = template if abs(s - 1.0) < 1e-3 else cv2.resize(
-            template, None, fx=s, fy=s, interpolation=cv2.INTER_AREA if s < 1 else cv2.INTER_LINEAR)
+    best = Match(False, 0.0)
+    for s in scales or (scale, scale * 0.9, scale * 1.1):
+        t = _resize(template, s)
         th, tw = t.shape[:2]
-        if th < 4 or tw < 4 or th > area.shape[0] or tw > area.shape[1]:
+        if th < 4 or tw < 4 or th > ah or tw > aw:
             continue
-        res = cv2.matchTemplate(area, t, cv2.TM_CCOEFF_NORMED)
-        _, conf, _, loc = cv2.minMaxLoc(res)
+        if min(th, tw) * COARSE >= MIN_COARSE_SIDE:
+            # shortcut: only the coarse peak is refined; a false coarse peak beating the true one
+            # gives a miss. Refine top-N peaks if templates ever prove ambiguous.
+            _, (cx, cy) = _best(_resize(area, COARSE), _resize(t, COARSE))
+            x, y, m = int(cx / COARSE), int(cy / COARSE), int(2 / COARSE) + 2
+            x0, y0 = max(0, min(x - m, aw - tw)), max(0, min(y - m, ah - th))
+            x1, y1 = min(aw, max(x0 + tw, x + tw + m)), min(ah, max(y0 + th, y + th + m))
+            conf, (lx, ly) = _best(area[y0:y1, x0:x1], t)
+            loc = (x0 + lx, y0 + ly)
+        else:
+            conf, loc = _best(area, t)
         if conf > best.confidence:
-            cx, cy = (ox + loc[0] + tw / 2) / fw, (oy + loc[1] + th / 2) / fh
-            best = Match(conf >= threshold, float(conf), (cx, cy))
+            center = ((ox + loc[0] + tw / 2) / fw, (oy + loc[1] + th / 2) / fh)
+            best = Match(conf >= threshold, conf, center, s)
     return best
 
 

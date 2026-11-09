@@ -79,7 +79,7 @@ class Raid:
         elif a == "wait":
             self.rt.sleep(float(s["seconds"]))
         elif a in ("click_template", "wait_template", "wait_gone"):
-            det = {k: s[k] for k in ("template", "region", "threshold") if k in s}
+            det = {k: s[k] for k in ("template", "region", "threshold", "color") if k in s}
             end = time.monotonic() + float(s.get("timeout", 10))
             while True:
                 self.rt.checkpoint()

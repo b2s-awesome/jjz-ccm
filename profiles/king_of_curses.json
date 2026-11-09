@@ -1,0 +1,196 @@
+{
+  "id": "king_of_curses",
+  "name": "King of Curses (Sukuna)",
+  "module": "generic",
+  "verified": false,
+  "notes": "Drops Stained Crates (Stained Ring, Stained Talisman). Level requirement conflicts (200 vs 650). Nightmare reportedly allows 2 lives. UNVERIFIED: entry flow, template names and rewards are placeholders. Capture your own templates and test in Testing mode.",
+  "required_level": null,
+  "difficulties": [
+    "Easy",
+    "Normal",
+    "Hard",
+    "Nightmare"
+  ],
+  "difficulty": "Easy",
+  "objective": "crate",
+  "objective_target": "",
+  "target_rewards": [],
+  "max_attempts": 0,
+  "run_timeout_s": 600,
+  "enter_timeout_s": 60,
+  "entry_steps": [
+    {
+      "action": "click_template",
+      "template": "raid_select_king_of_curses",
+      "timeout": 15
+    },
+    {
+      "action": "click_template",
+      "template": "difficulty_{difficulty}",
+      "timeout": 10
+    },
+    {
+      "action": "click_template",
+      "template": "start_button",
+      "timeout": 10
+    }
+  ],
+  "claim_steps": [
+    {
+      "action": "click_template",
+      "template": "claim_button",
+      "timeout": 8,
+      "optional": true
+    }
+  ],
+  "restart_steps": [
+    {
+      "action": "click_template",
+      "template": "replay_button",
+      "timeout": 15
+    }
+  ],
+  "respawn_steps": [
+    {
+      "action": "wait_gone",
+      "template": "death_screen",
+      "timeout": 20
+    }
+  ],
+  "detection": {
+    "in_raid": {
+      "template": "raid_hud",
+      "region": [
+        0.25,
+        0.0,
+        0.5,
+        0.2
+      ],
+      "threshold": 0.8
+    },
+    "loading": {
+      "template": "loading_screen",
+      "region": null,
+      "threshold": 0.8
+    },
+    "complete": {
+      "template": "reward_screen",
+      "region": [
+        0.2,
+        0.1,
+        0.6,
+        0.5
+      ],
+      "threshold": 0.8
+    },
+    "failed": {
+      "template": "defeat_screen",
+      "region": [
+        0.2,
+        0.1,
+        0.6,
+        0.5
+      ],
+      "threshold": 0.8
+    },
+    "death": {
+      "template": "death_screen",
+      "region": null,
+      "threshold": 0.8
+    },
+    "boss_health": {
+      "region": [
+        0.3,
+        0.05,
+        0.4,
+        0.03
+      ],
+      "color": [
+        200,
+        40,
+        40
+      ],
+      "tolerance": 45
+    },
+    "player_health": null,
+    "boss": {
+      "template": "boss_king_of_curses",
+      "region": [
+        0.25,
+        0.0,
+        0.5,
+        0.12
+      ],
+      "threshold": 0.75
+    }
+  },
+  "combat": {
+    "abilities": [
+      {
+        "name": "M1",
+        "key": "mouse1",
+        "cooldown": 0.3,
+        "priority": 1,
+        "hold": 0.0,
+        "enabled": true
+      },
+      {
+        "name": "Skill 1",
+        "key": "1",
+        "cooldown": 8,
+        "priority": 5,
+        "hold": 0.0,
+        "enabled": true
+      },
+      {
+        "name": "Skill 2",
+        "key": "2",
+        "cooldown": 10,
+        "priority": 5,
+        "hold": 0.0,
+        "enabled": true
+      },
+      {
+        "name": "Skill 3",
+        "key": "3",
+        "cooldown": 12,
+        "priority": 6,
+        "hold": 0.0,
+        "enabled": true
+      },
+      {
+        "name": "Skill 4",
+        "key": "4",
+        "cooldown": 15,
+        "priority": 7,
+        "hold": 0.0,
+        "enabled": true
+      }
+    ],
+    "tick_interval": 0.1,
+    "approach": {
+      "key": "w",
+      "seconds": 0.0
+    },
+    "lock_on_key": "",
+    "low_health_pct": 0,
+    "low_health_ability": "",
+    "no_progress_timeout": 25,
+    "recovery_steps": [
+      {
+        "action": "key",
+        "key": "w",
+        "hold": 0.6
+      }
+    ],
+    "max_recoveries": 3
+  },
+  "reward_ocr": {},
+  "rewards_per_run": {
+    "player_exp": 0,
+    "awakened_exp": 0,
+    "yen": 0,
+    "lumen": 0
+  },
+  "drops_per_run": {}
+}

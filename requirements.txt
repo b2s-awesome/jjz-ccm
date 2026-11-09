@@ -1,0 +1,13 @@
+# GUI
+PySide6>=6.6
+# Vision
+opencv-python>=4.9
+numpy>=1.26
+mss>=9.0
+# Input (Windows: DirectInput scan codes, which Roblox reads; pynput for global hotkeys)
+pydirectinput>=1.0.4; sys_platform == "win32"
+pynput>=1.7
+# Optional OCR for reading reward screens (also needs the Tesseract binary installed)
+pytesseract>=0.3.10
+# Tests
+pytest>=8.0
